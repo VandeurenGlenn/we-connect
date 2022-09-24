@@ -1,6 +1,6 @@
 'use strict';
 const path = require('path');
-const {app, BrowserWindow, Menu} = require('electron');
+const {app, BrowserWindow, Menu, desktopCapturer} = require('electron');
 /// const {autoUpdater} = require('electron-updater');
 const {is} = require('electron-util');
 const unhandled = require('electron-unhandled');
@@ -8,13 +8,13 @@ const debug = require('electron-debug');
 const contextMenu = require('electron-context-menu');
 const config = require('./config.js');
 const menu = require('./menu.js');
-const packageJson = require('./package.json');
+
 
 unhandled();
 debug();
 contextMenu();
 
-app.setAppUserModelId(packageJson.build.appId);
+app.setAppUserModelId('com.vandeurenglenn.we-connect');
 
 // Uncomment this before publishing your first version.
 // It's commented out as it throws an error if there are no published versions.
@@ -34,8 +34,11 @@ const createMainWindow = async () => {
 	const window_ = new BrowserWindow({
 		title: app.name,
 		show: false,
-		width: 600,
-		height: 400,
+		width: 1200,
+		height: 860,
+		webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+    }
 	});
 
 	window_.on('ready-to-show', () => {
@@ -48,7 +51,7 @@ const createMainWindow = async () => {
 		mainWindow = undefined;
 	});
 
-	await window_.loadFile(path.join(__dirname, 'index.html'));
+	await window_.loadFile(path.join(__dirname, 'www/index.html'));
 
 	return window_;
 };
@@ -84,7 +87,15 @@ app.on('activate', () => {
 	await app.whenReady();
 	Menu.setApplicationMenu(menu);
 	mainWindow = await createMainWindow();
+	
+	let sources = await desktopCapturer.getSources({ types: ['window', 'screen'] })
+	console.log(sources)
+	sources = sources.map(source => {
+		source.thumbnail = source.thumbnail.toDataURL()
+		return source
+	})
+	mainWindow.webContents.send('SET_SOURCES', JSON.stringify(sources))
 
-	const favoriteAnimal = config.get('favoriteAnimal');
-	mainWindow.webContents.executeJavaScript(`document.querySelector('header p').textContent = 'Your favorite animal is ${favoriteAnimal}'`);
+	// const favoriteAnimal = config.get('favoriteAnimal');
+	// mainWindow.webContents.executeJavaScript(`document.querySelector('header p').textContent = 'Your favorite animal is ${favoriteAnimal}'`);
 })();
